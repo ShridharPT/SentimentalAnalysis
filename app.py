@@ -411,40 +411,6 @@ def get_current_user(current_user):
     return jsonify(current_user.to_dict())
 
 
-# Static Routes - SPA support for React Router
-@app.route('/')
-@app.route('/login')
-@app.route('/signup')
-@app.route('/forgot-password')
-@app.route('/entries')
-@app.route('/dashboard')
-def serve_spa():
-    return send_from_directory(app.static_folder, 'index.html')
-
-
-@app.route('/<path:path>')
-def serve_static(path):
-    # Check if it's an API route (shouldn't reach here, but just in case)
-    if path.startswith('api/'):
-        return jsonify({'error': 'Not found'}), 404
-    
-    # Try to serve static file
-    static_file = os.path.join(app.static_folder, path)
-    if os.path.exists(static_file) and os.path.isfile(static_file):
-        return send_from_directory(app.static_folder, path)
-    
-    # For all other routes, serve index.html (React Router handles it)
-    return send_from_directory(app.static_folder, 'index.html')
-
-
-# 404 handler - serve SPA for non-API routes, JSON for API routes
-@app.errorhandler(404)
-def not_found(e):
-    if request.path.startswith('/api/'):
-        return jsonify({'error': 'Not found'}), 404
-    return send_from_directory(app.static_folder, 'index.html')
-
-
 # Entry Routes (Protected)
 @app.route('/api/entries', methods=['GET'])
 @token_required
@@ -637,6 +603,40 @@ def health():
         'status': 'ok',
         'model_loaded': MODEL_LOADED
     })
+
+
+# Static Routes - SPA support for React Router (MUST be after all API routes)
+@app.route('/')
+@app.route('/login')
+@app.route('/signup')
+@app.route('/forgot-password')
+@app.route('/entries')
+@app.route('/dashboard')
+def serve_spa():
+    return send_from_directory(app.static_folder, 'index.html')
+
+
+@app.route('/<path:path>')
+def serve_static(path):
+    # Check if it's an API route (shouldn't reach here, but just in case)
+    if path.startswith('api/'):
+        return jsonify({'error': 'Not found'}), 404
+    
+    # Try to serve static file
+    static_file = os.path.join(app.static_folder, path)
+    if os.path.exists(static_file) and os.path.isfile(static_file):
+        return send_from_directory(app.static_folder, path)
+    
+    # For all other routes, serve index.html (React Router handles it)
+    return send_from_directory(app.static_folder, 'index.html')
+
+
+# 404 handler - serve SPA for non-API routes, JSON for API routes
+@app.errorhandler(404)
+def not_found(e):
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Not found'}), 404
+    return send_from_directory(app.static_folder, 'index.html')
 
 
 # Create tables and handle migrations
