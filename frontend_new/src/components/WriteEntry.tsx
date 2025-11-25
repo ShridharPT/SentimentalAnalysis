@@ -68,8 +68,21 @@ const WriteEntry = () => {
       recognitionRef.current.onerror = (event: any) => {
         console.error("Speech recognition error:", event.error);
         setIsListening(false);
-        if (event.error === "not-allowed") {
-          setError("Microphone access denied. Please allow microphone access.");
+        switch (event.error) {
+          case "not-allowed":
+            setError("Microphone access denied. Please allow microphone access in your browser settings.");
+            break;
+          case "no-speech":
+            setError("No speech detected. Please try again.");
+            break;
+          case "network":
+            setError("Network error. Please check your internet connection.");
+            break;
+          case "aborted":
+            // User stopped, no error needed
+            break;
+          default:
+            setError(`Voice input error: ${event.error}. Try using Chrome or Edge browser.`);
         }
       };
 
