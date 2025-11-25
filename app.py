@@ -623,9 +623,25 @@ def health():
     })
 
 
-# Create tables
+# Create tables and handle migrations
 with app.app_context():
     db.create_all()
+    
+    # Add missing columns if they don't exist (for existing databases)
+    from sqlalchemy import inspect, text
+    inspector = inspect(db.engine)
+    
+    # Check if is_verified column exists in user table
+    if 'user' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('user')]
+        if 'is_verified' not in columns:
+            try:
+                db.session.execute(text('ALTER TABLE "user" ADD COLUMN is_verified BOOLEAN DEFAULT TRUE'))
+                db.session.commit()
+                print("[OK] Added is_verified column to user table")
+            except Exception as e:
+                db.session.rollback()
+                print(f"[INFO] is_verified column might already exist: {e}")
 
 
 if __name__ == '__main__':
