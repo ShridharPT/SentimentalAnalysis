@@ -1,8 +1,13 @@
 // API utility for communicating with Flask backend
-const API_BASE = '/api';
+const API_BASE = "/api";
+
+function getAuthHeader(): HeadersInit {
+  const token = localStorage.getItem("moodmate-token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export interface DiaryEntry {
-  id: number;
+  id: string;
   title: string;
   content: string;
   created_at: string;
@@ -23,80 +28,84 @@ export interface AnalyticsData {
   };
   emotion_distribution: Record<string, number>;
   average_sentiment: number;
-  daily_breakdown: Record<string, any>;
   period: string;
 }
 
 // Entries API
 export const entriesAPI = {
   getAll: async (): Promise<DiaryEntry[]> => {
-    const response = await fetch(`${API_BASE}/entries`);
-    if (!response.ok) throw new Error('Failed to fetch entries');
+    const response = await fetch(`${API_BASE}/entries`, {
+      headers: { ...getAuthHeader() },
+    });
+    if (!response.ok) {
+      if (response.status === 401) throw new Error("Unauthorized");
+      throw new Error("Failed to fetch entries");
+    }
     return response.json();
   },
 
-  getById: async (id: number): Promise<DiaryEntry> => {
-    const response = await fetch(`${API_BASE}/entries/${id}`);
-    if (!response.ok) throw new Error('Failed to fetch entry');
+  getById: async (id: string): Promise<DiaryEntry> => {
+    const response = await fetch(`${API_BASE}/entries/${id}`, {
+      headers: { ...getAuthHeader() },
+    });
+    if (!response.ok) throw new Error("Failed to fetch entry");
     return response.json();
   },
 
   create: async (title: string, content: string): Promise<DiaryEntry> => {
     const response = await fetch(`${API_BASE}/entries`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
       body: JSON.stringify({ title, content }),
     });
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to create entry');
+      throw new Error(error.error || "Failed to create entry");
     }
     const data = await response.json();
     return data.entry;
   },
 
-  update: async (id: number, title?: string, content?: string): Promise<DiaryEntry> => {
+  update: async (id: string, title?: string, content?: string): Promise<DiaryEntry> => {
     const response = await fetch(`${API_BASE}/entries/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
       body: JSON.stringify({ title, content }),
     });
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to update entry');
+      throw new Error(error.error || "Failed to update entry");
     }
     const data = await response.json();
     return data.entry;
   },
 
-  delete: async (id: number): Promise<void> => {
+  delete: async (id: string): Promise<void> => {
     const response = await fetch(`${API_BASE}/entries/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
+      headers: { ...getAuthHeader() },
     });
-    if (!response.ok) throw new Error('Failed to delete entry');
+    if (!response.ok) throw new Error("Failed to delete entry");
   },
 
   deleteAll: async (): Promise<void> => {
     const response = await fetch(`${API_BASE}/entries/all`, {
-      method: 'DELETE',
+      method: "DELETE",
+      headers: { ...getAuthHeader() },
     });
-    if (!response.ok) throw new Error('Failed to delete all entries');
+    if (!response.ok) throw new Error("Failed to delete all entries");
   },
 };
 
 // Analytics API
 export const analyticsAPI = {
-  getDashboard: async (period: 'week' | 'month' | 'all' = 'week', date?: string): Promise<AnalyticsData> => {
+  getDashboard: async (period: "week" | "month" | "all" = "week", date?: string): Promise<AnalyticsData> => {
     const params = new URLSearchParams({ period });
-    if (date) params.append('date', date);
-    const response = await fetch(`${API_BASE}/analytics/dashboard?${params}`);
-    if (!response.ok) throw new Error('Failed to fetch dashboard analytics');
-    return response.json();
-  },
-
-  getTrends: async (period: 'week' | 'month' = 'week'): Promise<Record<string, any>> => {
-    const response = await fetch(`${API_BASE}/analytics/trends?period=${period}`);
-    if (!response.ok) throw new Error('Failed to fetch trends');
+    if (date) params.append("date", date);
+    const response = await fetch(`${API_BASE}/analytics/dashboard?${params}`, {
+      headers: { ...getAuthHeader() },
+    });
+    if (!response.ok) throw new Error("Failed to fetch dashboard analytics");
     return response.json();
   },
 };
@@ -105,7 +114,7 @@ export const analyticsAPI = {
 export const healthAPI = {
   check: async () => {
     const response = await fetch(`${API_BASE}/health`);
-    if (!response.ok) throw new Error('Health check failed');
+    if (!response.ok) throw new Error("Health check failed");
     return response.json();
   },
 };
