@@ -118,34 +118,34 @@ const Dashboard = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="shadow-medium border-border/50 transition-smooth hover:shadow-large bg-white">
+        <Card className="shadow-medium border-border/50 transition-smooth hover:shadow-large bg-card">
           <CardHeader className="pb-3">
-            <CardDescription className="text-gray-600">Total Entries</CardDescription>
+            <CardDescription className="text-muted-foreground">Total Entries</CardDescription>
           </CardHeader>
-          <CardContent className="bg-white">
-            <div className="text-5xl font-display font-bold text-gray-900">
+          <CardContent>
+            <div className="text-5xl font-display font-bold text-foreground">
               {loading ? "..." : data?.total_entries ?? 0}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-medium border-border/50 transition-smooth hover:shadow-large bg-white">
+        <Card className="shadow-medium border-border/50 transition-smooth hover:shadow-large bg-card">
           <CardHeader className="pb-3">
-            <CardDescription className="text-gray-600">Avg Sentiment</CardDescription>
+            <CardDescription className="text-muted-foreground">Avg Sentiment</CardDescription>
           </CardHeader>
-          <CardContent className="bg-white">
-            <div className="text-5xl font-display font-bold text-gray-900">
+          <CardContent>
+            <div className="text-5xl font-display font-bold text-foreground">
               {loading ? "..." : data?.average_sentiment?.toFixed(2) ?? "0.00"}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-medium border-border/50 transition-smooth hover:shadow-large bg-white">
+        <Card className="shadow-medium border-border/50 transition-smooth hover:shadow-large bg-card">
           <CardHeader className="pb-3">
-            <CardDescription className="text-gray-600">Most Common Emotion</CardDescription>
+            <CardDescription className="text-muted-foreground">Most Common Emotion</CardDescription>
           </CardHeader>
-          <CardContent className="bg-white">
-            <div className="text-5xl font-display font-bold text-gray-900">{loading ? "..." : getTopEmotion()}</div>
+          <CardContent>
+            <div className="text-5xl font-display font-bold text-foreground">{loading ? "..." : getTopEmotion()}</div>
           </CardContent>
         </Card>
       </div>

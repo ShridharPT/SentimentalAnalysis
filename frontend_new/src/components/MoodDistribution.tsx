@@ -52,12 +52,12 @@ const MoodDistribution = ({ data, totalEntries, loading }: MoodDistributionProps
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-3xl font-display font-bold text-gray-900">{percentage}%</span>
+          <span className="text-3xl font-display font-bold text-foreground">{percentage}%</span>
         </div>
       </div>
       <div className="text-center">
-        <p className="font-semibold text-gray-900 capitalize">{label}</p>
-        <p className="text-sm text-gray-600">({count})</p>
+        <p className="font-semibold text-foreground capitalize">{label}</p>
+        <p className="text-sm text-muted-foreground">({count})</p>
       </div>
     </div>
   );
@@ -70,7 +70,7 @@ const MoodDistribution = ({ data, totalEntries, loading }: MoodDistributionProps
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex justify-center py-8 text-gray-500">Loading...</div>
+          <div className="flex justify-center py-8 text-muted-foreground">Loading...</div>
         ) : (
           <div className="flex flex-wrap justify-center gap-12 py-8">
             <MoodCircle

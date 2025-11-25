@@ -35,9 +35,9 @@ const EmotionDistribution = ({ data, loading }: EmotionDistributionProps) => {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex justify-center py-8 text-gray-500">Loading...</div>
+          <div className="flex justify-center py-8 text-muted-foreground">Loading...</div>
         ) : emotions.length === 0 ? (
-          <div className="flex justify-center py-8 text-gray-500">No emotion data available</div>
+          <div className="flex justify-center py-8 text-muted-foreground">No emotion data available</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {emotions.map((emotion, index) => (
@@ -47,7 +47,7 @@ const EmotionDistribution = ({ data, loading }: EmotionDistributionProps) => {
               >
                 <div className="flex items-center gap-3">
                   <span className="text-3xl">{emotion.emoji}</span>
-                  <span className="font-semibold text-gray-900">{emotion.name}</span>
+                  <span className="font-semibold text-foreground">{emotion.name}</span>
                 </div>
                 <Badge className="gradient-warm text-white text-base px-4 py-1">{emotion.count}</Badge>
               </div>
