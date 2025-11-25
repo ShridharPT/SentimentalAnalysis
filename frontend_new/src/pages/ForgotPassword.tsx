@@ -1,25 +1,23 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "@/lib/auth";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, BookHeart, Eye, EyeOff, Mail, CheckCircle } from "lucide-react";
+import { Loader2, BookHeart, Eye, EyeOff, Mail, CheckCircle, ArrowLeft } from "lucide-react";
 
-const Signup = () => {
-  const [step, setStep] = useState<"email" | "otp" | "details">("email");
-  const [name, setName] = useState("");
+const ForgotPassword = () => {
+  const [step, setStep] = useState<"email" | "otp" | "password">("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signup } = useAuth();
   const navigate = useNavigate();
 
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -31,7 +29,7 @@ const Signup = () => {
       const response = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, purpose: "signup" }),
+        body: JSON.stringify({ email, purpose: "reset" }),
       });
 
       const data = await response.json();
@@ -54,13 +52,13 @@ const Signup = () => {
       const response = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp, purpose: "signup" }),
+        body: JSON.stringify({ email, otp, purpose: "reset" }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
 
-      setStep("details");
+      setStep("password");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid OTP");
     } finally {
@@ -68,16 +66,16 @@ const Signup = () => {
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (password !== confirmPassword) {
+    if (newPassword !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
 
-    if (password.length < 6) {
+    if (newPassword.length < 6) {
       setError("Password must be at least 6 characters");
       return;
     }
@@ -85,19 +83,19 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/signup", {
+      const response = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, otp }),
+        body: JSON.stringify({ email, otp, new_password: newPassword }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
 
-      localStorage.setItem("moodmate-token", data.token);
-      window.location.href = "/";
+      setSuccess("Password reset successfully! Redirecting to login...");
+      setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Signup failed");
+      setError(err instanceof Error ? err.message : "Failed to reset password");
     } finally {
       setLoading(false);
     }
@@ -112,17 +110,23 @@ const Signup = () => {
               <BookHeart className="w-8 h-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-3xl font-display">Create Account</CardTitle>
+          <CardTitle className="text-3xl font-display">Reset Password</CardTitle>
           <CardDescription>
-            {step === "email" && "Enter your email to get started"}
+            {step === "email" && "Enter your email to receive a reset code"}
             {step === "otp" && "Enter the verification code sent to your email"}
-            {step === "details" && "Complete your profile"}
+            {step === "password" && "Create your new password"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {success && (
+            <Alert className="mb-4 bg-primary/10 text-primary border-primary/20">
+              <AlertDescription>{success}</AlertDescription>
             </Alert>
           )}
 
@@ -155,7 +159,7 @@ const Signup = () => {
                 ) : (
                   <>
                     <Mail className="w-4 h-4 mr-2" />
-                    Send Verification Code
+                    Send Reset Code
                   </>
                 )}
               </Button>
@@ -213,30 +217,18 @@ const Signup = () => {
             </form>
           )}
 
-          {/* Step 3: Complete Profile */}
-          {step === "details" && (
-            <form onSubmit={handleSignup} className="space-y-4">
+          {/* Step 3: New Password */}
+          {step === "password" && (
+            <form onSubmit={handleResetPassword} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="border-2 focus:border-primary"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="newPassword">New Password</Label>
                 <div className="relative">
                   <Input
-                    id="password"
+                    id="newPassword"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
                     required
                     className="border-2 focus:border-primary pr-10"
                   />
@@ -251,7 +243,7 @@ const Signup = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
@@ -280,25 +272,26 @@ const Signup = () => {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating account...
+                    Resetting...
                   </>
                 ) : (
-                  "Create Account"
+                  "Reset Password"
                 )}
               </Button>
             </form>
           )}
 
-          <p className="text-center mt-6 text-muted-foreground">
-            Already have an account?{" "}
-            <Link to="/login" className="text-primary hover:underline font-medium">
-              Sign in
-            </Link>
-          </p>
+          <Link
+            to="/login"
+            className="flex items-center justify-center gap-2 mt-6 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to login
+          </Link>
         </CardContent>
       </Card>
     </div>
   );
 };
 
-export default Signup;
+export default ForgotPassword;

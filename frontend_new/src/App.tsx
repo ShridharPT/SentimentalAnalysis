@@ -15,6 +15,7 @@ import Entries from "./pages/Entries";
 import DashboardPage from "./pages/DashboardPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -120,6 +121,14 @@ const App = () => (
                 element={
                   <AuthRoute>
                     <Signup />
+                  </AuthRoute>
+                }
+              />
+              <Route
+                path="/forgot-password"
+                element={
+                  <AuthRoute>
+                    <ForgotPassword />
                   </AuthRoute>
                 }
               />

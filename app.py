@@ -6,6 +6,10 @@ import pickle
 import os
 import json
 import jwt
+import random
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from functools import wraps
 
 app = Flask(__name__, static_folder='static', static_url_path='')
@@ -13,9 +17,14 @@ app = Flask(__name__, static_folder='static', static_url_path='')
 # Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'moodmate-secret-key-2025')
 
-# Database - Use PostgreSQL on Render, SQLite locally
+# Email Configuration
+SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
+SMTP_EMAIL = os.environ.get('SMTP_EMAIL', '')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+
+# Database
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///moodmate.db')
-# Fix for Render PostgreSQL URL
 if database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
@@ -46,6 +55,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(256), nullable=False)
     name = db.Column(db.String(100))
+    is_verified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     entries = db.relationship('DiaryEntry', backref='user', lazy=True, cascade='all, delete-orphan')
 
@@ -55,6 +65,15 @@ class User(db.Model):
             'email': self.email,
             'name': self.name or self.email.split('@')[0]
         }
+
+
+class OTP(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), nullable=False)
+    otp = db.Column(db.String(6), nullable=False)
+    purpose = db.Column(db.String(20), nullable=False)  # 'signup' or 'reset'
+    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class DiaryEntry(db.Model):
@@ -85,7 +104,36 @@ class DiaryEntry(db.Model):
         }
 
 
-# JWT Token decorator
+# Helper Functions
+def send_email(to_email, subject, body):
+    """Send email using SMTP."""
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        print(f"[EMAIL] Would send to {to_email}: {subject}")
+        return True  # Skip in dev mode
+    
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_EMAIL
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'html'))
+        
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"[EMAIL ERROR] {e}")
+        return False
+
+
+def generate_otp():
+    """Generate 6-digit OTP."""
+    return str(random.randint(100000, 999999))
+
+
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -112,7 +160,6 @@ def token_required(f):
     return decorated
 
 
-# Helper Functions
 def analyze_sentiment(text):
     if not MODEL_LOADED:
         return None, None, None, None, None
@@ -146,11 +193,96 @@ def analyze_sentiment(text):
         mood_category = 'neutral'
 
     all_probs = {label_mapping[i]: float(probabilities[i]) for i in range(len(label_mapping))}
-
     return emotion, confidence, sentiment_score, all_probs, mood_category
 
 
 # Auth Routes
+@app.route('/api/auth/send-otp', methods=['POST'])
+def send_otp():
+    """Send OTP for signup or password reset."""
+    try:
+        data = request.get_json()
+        email = data.get('email', '').strip().lower()
+        purpose = data.get('purpose', 'signup')  # 'signup' or 'reset'
+
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+
+        # For signup, check if email already exists
+        if purpose == 'signup':
+            if User.query.filter_by(email=email).first():
+                return jsonify({'error': 'Email already registered'}), 400
+        # For reset, check if email exists
+        elif purpose == 'reset':
+            if not User.query.filter_by(email=email).first():
+                return jsonify({'error': 'Email not found'}), 404
+
+        # Delete old OTPs for this email
+        OTP.query.filter_by(email=email, purpose=purpose).delete()
+        
+        # Generate and save new OTP
+        otp_code = generate_otp()
+        otp = OTP(
+            email=email,
+            otp=otp_code,
+            purpose=purpose,
+            expires_at=datetime.utcnow() + timedelta(minutes=10)
+        )
+        db.session.add(otp)
+        db.session.commit()
+
+        # Send email
+        subject = "MoodMate - Verify Your Email" if purpose == 'signup' else "MoodMate - Reset Password"
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2 style="color: #2dd4bf;">MoodMate</h2>
+            <p>Your verification code is:</p>
+            <h1 style="color: #2dd4bf; font-size: 32px; letter-spacing: 5px;">{otp_code}</h1>
+            <p>This code expires in 10 minutes.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+        </body>
+        </html>
+        """
+        
+        if send_email(email, subject, body):
+            return jsonify({'success': True, 'message': 'OTP sent to your email'})
+        else:
+            return jsonify({'error': 'Failed to send email. Please try again.'}), 500
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/auth/verify-otp', methods=['POST'])
+def verify_otp():
+    """Verify OTP."""
+    try:
+        data = request.get_json()
+        email = data.get('email', '').strip().lower()
+        otp_code = data.get('otp', '').strip()
+        purpose = data.get('purpose', 'signup')
+
+        if not email or not otp_code:
+            return jsonify({'error': 'Email and OTP are required'}), 400
+
+        otp = OTP.query.filter_by(email=email, otp=otp_code, purpose=purpose).first()
+        
+        if not otp:
+            return jsonify({'error': 'Invalid OTP'}), 400
+        
+        if otp.expires_at < datetime.utcnow():
+            OTP.query.filter_by(email=email, purpose=purpose).delete()
+            db.session.commit()
+            return jsonify({'error': 'OTP has expired'}), 400
+
+        return jsonify({'success': True, 'message': 'OTP verified'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
     try:
@@ -158,6 +290,7 @@ def signup():
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
         name = data.get('name', '').strip()
+        otp_code = data.get('otp', '').strip()
 
         if not email or not password:
             return jsonify({'error': 'Email and password are required'}), 400
@@ -168,12 +301,22 @@ def signup():
         if User.query.filter_by(email=email).first():
             return jsonify({'error': 'Email already registered'}), 400
 
+        # Verify OTP
+        otp = OTP.query.filter_by(email=email, otp=otp_code, purpose='signup').first()
+        if not otp or otp.expires_at < datetime.utcnow():
+            return jsonify({'error': 'Invalid or expired OTP'}), 400
+
+        # Create user
         user = User(
             email=email,
             password=generate_password_hash(password),
-            name=name or email.split('@')[0]
+            name=name or email.split('@')[0],
+            is_verified=True
         )
         db.session.add(user)
+        
+        # Delete used OTP
+        OTP.query.filter_by(email=email, purpose='signup').delete()
         db.session.commit()
 
         token = jwt.encode({
@@ -218,6 +361,44 @@ def login():
         })
 
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/auth/reset-password', methods=['POST'])
+def reset_password():
+    """Reset password with OTP verification."""
+    try:
+        data = request.get_json()
+        email = data.get('email', '').strip().lower()
+        otp_code = data.get('otp', '').strip()
+        new_password = data.get('new_password', '')
+
+        if not email or not otp_code or not new_password:
+            return jsonify({'error': 'Email, OTP, and new password are required'}), 400
+
+        if len(new_password) < 6:
+            return jsonify({'error': 'Password must be at least 6 characters'}), 400
+
+        # Verify OTP
+        otp = OTP.query.filter_by(email=email, otp=otp_code, purpose='reset').first()
+        if not otp or otp.expires_at < datetime.utcnow():
+            return jsonify({'error': 'Invalid or expired OTP'}), 400
+
+        # Update password
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        user.password = generate_password_hash(new_password)
+        
+        # Delete used OTP
+        OTP.query.filter_by(email=email, purpose='reset').delete()
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Password reset successfully'})
+
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 
@@ -368,7 +549,7 @@ def delete_all_entries(current_user):
         return jsonify({'error': str(e)}), 500
 
 
-# Analytics Routes (Protected)
+# Analytics Routes
 @app.route('/api/analytics/dashboard', methods=['GET'])
 @token_required
 def get_dashboard_analytics(current_user):
