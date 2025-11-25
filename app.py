@@ -293,7 +293,6 @@ def signup():
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
         name = data.get('name', '').strip()
-        otp_code = data.get('otp', '').strip()
 
         if not email or not password:
             return jsonify({'error': 'Email and password are required'}), 400
@@ -304,12 +303,7 @@ def signup():
         if User.query.filter_by(email=email).first():
             return jsonify({'error': 'Email already registered'}), 400
 
-        # Verify OTP
-        otp = OTP.query.filter_by(email=email, otp=otp_code, purpose='signup').first()
-        if not otp or otp.expires_at < datetime.utcnow():
-            return jsonify({'error': 'Invalid or expired OTP'}), 400
-
-        # Create user
+        # Create user directly without OTP verification
         user = User(
             email=email,
             password=generate_password_hash(password),
@@ -317,9 +311,6 @@ def signup():
             is_verified=True
         )
         db.session.add(user)
-        
-        # Delete used OTP
-        OTP.query.filter_by(email=email, purpose='signup').delete()
         db.session.commit()
 
         token = jwt.encode({
