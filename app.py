@@ -408,7 +408,7 @@ def get_current_user(current_user):
     return jsonify(current_user.to_dict())
 
 
-# Static Routes
+# Static Routes - SPA fallback for React Router
 @app.route('/')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
@@ -426,6 +426,16 @@ def serve_static(path):
         return send_from_directory(app.static_folder, path)
     
     # For all other routes, serve index.html (React Router handles it)
+    return send_from_directory(app.static_folder, 'index.html')
+
+
+# Explicit SPA routes - ensures these paths always return index.html
+@app.route('/login')
+@app.route('/signup')
+@app.route('/forgot-password')
+@app.route('/entries')
+@app.route('/dashboard')
+def spa_routes():
     return send_from_directory(app.static_folder, 'index.html')
 
 
