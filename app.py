@@ -27,6 +27,9 @@ SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///moodmate.db')
 if database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
+# Add SSL mode for PostgreSQL on Render
+if 'postgresql://' in database_url and 'sslmode' not in database_url:
+    database_url += '?sslmode=require'
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -434,9 +437,11 @@ def serve_static(path):
     return send_from_directory(app.static_folder, 'index.html')
 
 
-# 404 handler - also serve SPA for unknown routes
+# 404 handler - serve SPA for non-API routes, JSON for API routes
 @app.errorhandler(404)
 def not_found(e):
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Not found'}), 404
     return send_from_directory(app.static_folder, 'index.html')
 
 
