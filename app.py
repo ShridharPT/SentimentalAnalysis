@@ -411,14 +411,22 @@ def get_current_user(current_user):
 # Static Routes
 @app.route('/')
 def index():
-    return send_from_directory('static', 'index.html')
+    return send_from_directory(app.static_folder, 'index.html')
 
 
 @app.route('/<path:path>')
 def serve_static(path):
-    if os.path.exists(os.path.join('static', path)):
-        return send_from_directory('static', path)
-    return send_from_directory('static', 'index.html')
+    # Check if it's an API route (shouldn't reach here, but just in case)
+    if path.startswith('api/'):
+        return jsonify({'error': 'Not found'}), 404
+    
+    # Try to serve static file
+    static_file = os.path.join(app.static_folder, path)
+    if os.path.exists(static_file) and os.path.isfile(static_file):
+        return send_from_directory(app.static_folder, path)
+    
+    # For all other routes, serve index.html (React Router handles it)
+    return send_from_directory(app.static_folder, 'index.html')
 
 
 # Entry Routes (Protected)
